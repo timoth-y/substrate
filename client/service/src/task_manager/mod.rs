@@ -44,7 +44,7 @@ pub const DEFAULT_GROUP_NAME: &'static str = "default";
 /// The name of a group a task belongs to.
 ///
 /// This name is passed belong-side the task name to the prometheus metrics and can be used
-/// to group tasks.  
+/// to group tasks.
 pub enum GroupName {
 	/// Sets the group name to `default`.
 	Default,
@@ -309,6 +309,9 @@ pub struct TaskManager {
 	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child's essential
 	/// task fails.
 	children: Vec<TaskManager>,
+
+	/// IPFS runtime client.
+	pub ipfs_rt: std::sync::Arc<parking_lot::Mutex<tokio::runtime::Runtime>>,
 }
 
 impl TaskManager {
@@ -317,6 +320,7 @@ impl TaskManager {
 	pub fn new(
 		tokio_handle: Handle,
 		prometheus_registry: Option<&Registry>,
+		ipfs_rt: tokio::runtime::Runtime,
 	) -> Result<Self, PrometheusError> {
 		let (signal, on_exit) = exit_future::signal();
 
@@ -334,6 +338,8 @@ impl TaskManager {
 				let _ = x.await;
 			}));
 
+		let ipfs_rt = std::sync::Arc::new(parking_lot::Mutex::new(ipfs_rt));
+
 		Ok(Self {
 			on_exit,
 			signal: Some(signal),
@@ -345,6 +351,7 @@ impl TaskManager {
 			task_notifier,
 			completion_future,
 			children: Vec::new(),
+			ipfs_rt
 		})
 	}
 
