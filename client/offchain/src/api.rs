@@ -305,7 +305,7 @@ impl TryFrom<OpaqueNetworkState> for NetworkState {
 /// Offchain extensions implementation API
 ///
 /// This is the asynchronous processing part of the API.
-pub(crate) struct AsyncApi<I> {
+pub(crate) struct AsyncApi<I: ::ipfs::IpfsTypes> {
 	/// Everything HTTP-related is handled by a different struct.
 	http: Option<http::HttpWorker>,
 	/// Everything IPFS-related is handled by a different struct.
@@ -335,7 +335,7 @@ impl<I: ::ipfs::IpfsTypes> AsyncApi<I> {
 
 	/// Run a processing task for the API
 	pub async fn process(mut self) {
-		self.http.expect("`process` is only called once; qed");
+		let http = self.http.take().expect("Take invoked only once.");
 		let ipfs = self.ipfs.take().expect("Take invoked only once.");
 		futures::join!(http, ipfs);
 	}

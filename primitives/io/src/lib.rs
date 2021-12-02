@@ -1130,7 +1130,7 @@ pub trait Offchain {
 
 	/// Initiates an IPFS request
 	fn ipfs_request_start(&mut self, request: IpfsRequest) -> Result<IpfsRequestId, ()> {
-		self.extension::<OffchainExt>()
+		self.extension::<OffchainWorkerExt>()
 			.expect("ipfs_request_start can be called only in the offchain worker context")
 			.ipfs_request_start(request)
 	}
@@ -1141,7 +1141,7 @@ pub trait Offchain {
 		ids: &[IpfsRequestId],
 		deadline: Option<Timestamp>,
 	) -> Vec<IpfsRequestStatus> {
-		self.extension::<OffchainExt>()
+		self.extension::<OffchainWorkerExt>()
 			.expect("ipfs_response_wait can be called only in the offchain worker context")
 			.ipfs_response_wait(ids, deadline)
 	}

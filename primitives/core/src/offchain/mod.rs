@@ -773,12 +773,12 @@ impl<T: Externalities> Externalities for LimitedExternalities<T> {
 	}
 
 	fn ipfs_request_start(&mut self, request: IpfsRequest) -> Result<IpfsRequestId, ()> {
-		self.check(Capability::Ipfs, "ipfs_request_start");
+		self.check(Capabilities::IPFS, "ipfs_request_start");
 		self.externalities.ipfs_request_start(request)
 	}
 
 	fn ipfs_response_wait(&mut self, ids: &[IpfsRequestId], deadline: Option<Timestamp>) -> Vec<IpfsRequestStatus> {
-		self.check(Capability::Ipfs, "ipfs_response_wait");
+		self.check(Capabilities::IPFS, "ipfs_response_wait");
 		self.externalities.ipfs_response_wait(ids, deadline)
 	}
 

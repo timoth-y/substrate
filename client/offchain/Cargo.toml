@@ -37,7 +37,7 @@ once_cell = "1.8"
 
 # IPFS integration
 cid = "0.5"
-tokio = "1.14.0"
+tokio = "1.13.0"
 ipfs = { git = "https://github.com/rs-ipfs/rust-ipfs" }
 
 [dev-dependencies]
