@@ -43,7 +43,7 @@ pub const DEFAULT_GROUP_NAME: &'static str = "default";
 /// The name of a group a task belongs to.
 ///
 /// This name is passed belong-side the task name to the prometheus metrics and can be used
-/// to group tasks.  
+/// to group tasks.
 pub enum GroupName {
 	/// Sets the group name to `default`.
 	Default,
@@ -298,6 +298,9 @@ pub struct TaskManager {
 	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child's essential
 	/// task fails.
 	children: Vec<TaskManager>,
+
+	/// IPFS runtime client.
+	pub ipfs_rt: std::sync::Arc<parking_lot::Mutex<tokio::runtime::Runtime>>,
 }
 
 impl TaskManager {
@@ -306,6 +309,7 @@ impl TaskManager {
 	pub fn new(
 		tokio_handle: Handle,
 		prometheus_registry: Option<&Registry>,
+		ipfs_rt: tokio::runtime::Runtime,
 	) -> Result<Self, PrometheusError> {
 		let (signal, on_exit) = exit_future::signal();
 
@@ -313,6 +317,17 @@ impl TaskManager {
 		let (essential_failed_tx, essential_failed_rx) = tracing_unbounded("mpsc_essential_tasks");
 
 		let metrics = prometheus_registry.map(Metrics::register).transpose()?;
+
+		let (task_notifier, background_tasks) = tracing_unbounded("mpsc_background_tasks");
+		// NOTE: for_each_concurrent will await on all the JoinHandle futures at the same time. It
+		// is possible to limit this but it's actually better for the memory foot print to await
+		// them all to not accumulate anything on that stream.
+		let completion_future =
+			tokio_handle.spawn(background_tasks.for_each_concurrent(None, |x| async move {
+				let _ = x.await;
+			}));
+
+		let ipfs_rt = std::sync::Arc::new(parking_lot::Mutex::new(ipfs_rt));
 
 		Ok(Self {
 			on_exit,
@@ -323,6 +338,7 @@ impl TaskManager {
 			essential_failed_rx,
 			keep_alive: Box::new(()),
 			children: Vec::new(),
+			ipfs_rt
 		})
 	}
 

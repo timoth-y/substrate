@@ -25,6 +25,7 @@ use crate::{
 		self, storage::InMemOffchainStorage, HttpError, HttpRequestId as RequestId,
 		HttpRequestStatus as RequestStatus, OffchainOverlayedChange, OffchainStorage,
 		OpaqueNetworkState, StorageKind, Timestamp, TransactionPool,
+		IpfsRequest, IpfsRequestId, IpfsRequestStatus, IpfsResponse,
 	},
 	OpaquePeerId,
 };
@@ -35,7 +36,7 @@ use std::{
 
 use parking_lot::RwLock;
 
-/// Pending request.
+/// Pending request HTTP.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct PendingRequest {
 	/// HTTP method
@@ -56,6 +57,13 @@ pub struct PendingRequest {
 	pub read: usize,
 	/// Response headers
 	pub response_headers: Vec<(String, String)>,
+}
+
+/// Pending request IPFS.
+#[derive(Debug, PartialEq, Eq)]
+pub struct IpfsPendingRequest {
+	/// Request id
+	pub id: IpfsRequestId,
 }
 
 /// Sharable "persistent" offchain storage for test.
@@ -122,10 +130,14 @@ impl OffchainStorage for TestPersistentOffchainDB {
 /// This can be used in tests to respond or assert stuff about interactions.
 #[derive(Debug, Default)]
 pub struct OffchainState {
-	/// A list of pending requests.
+	/// A list of pending HTTP requests.
 	pub requests: BTreeMap<RequestId, PendingRequest>,
-	// Queue of requests that the test is expected to perform (in order).
+	// Queue of HTTP requests that the test is expected to perform (in order).
 	expected_requests: VecDeque<PendingRequest>,
+	/// A list of pending IPFS requests.
+	pub ipfs_requests: BTreeMap<IpfsRequestId, IpfsPendingRequest>,
+	// Queue of IPFS requests that the test is expected to perform (in order).
+	expected_ipfs_requests: BTreeMap<IpfsRequestId, IpfsPendingRequest>,
 	/// Persistent local storage
 	pub persistent_storage: TestPersistentOffchainDB,
 	/// Local storage
@@ -348,6 +360,26 @@ impl offchain::Externalities for TestOffchainExt {
 		} else {
 			Err(HttpError::IoError)
 		}
+	}
+
+	fn ipfs_request_start(&mut self, _request: IpfsRequest) -> Result<IpfsRequestId, ()> {
+		let mut state = self.0.write();
+		let id = IpfsRequestId(state.requests.len() as u16);
+		state.ipfs_requests.insert(id.clone(), IpfsPendingRequest { id });
+		Ok(id)
+	}
+
+	fn ipfs_response_wait(
+		&mut self,
+		ids: &[IpfsRequestId],
+		_deadline: Option<Timestamp>,
+	) -> Vec<IpfsRequestStatus> {
+		let state = self.0.read();
+
+		ids.iter().map(|id| match state.ipfs_requests.get(id) {
+			Some(_) => IpfsRequestStatus::Finished(IpfsResponse::Success),
+			None => IpfsRequestStatus::Invalid,
+		}).collect()
 	}
 
 	fn set_authorized_nodes(&mut self, _nodes: Vec<OpaquePeerId>, _authorized_only: bool) {
